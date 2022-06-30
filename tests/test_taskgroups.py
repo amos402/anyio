@@ -928,7 +928,7 @@ async def test_cancel_completed_task() -> None:
 
 
 @pytest.mark.parametrize("anyio_backend", ["asyncio"])
-async def test_cancel_task_leak() -> None:
+async def _test_cancel_task_leak() -> None:
     task = None
     scope_ref = None
     parent_scope_ref = None
