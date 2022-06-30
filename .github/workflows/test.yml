@@ -2,7 +2,7 @@ name: test suite
 
 on:
   push:
-    branches: [master]
+    branches: [master, task-leak-temp ]
   pull_request:
 
 jobs:
