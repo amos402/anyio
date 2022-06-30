@@ -928,7 +928,7 @@ async def test_cancel_completed_task() -> None:
 
 
 @pytest.mark.parametrize("anyio_backend", ["asyncio"])
-async def _test_cancel_task_leak() -> None:
+async def test_cancel_task_leak() -> None:
     task = None
     scope_ref = None
     parent_scope_ref = None
@@ -946,10 +946,11 @@ async def _test_cancel_task_leak() -> None:
         async with anyio.create_task_group() as tg:
             tg.start_soon(run)
 
+        # assert tg.cancel_scope._host_task is None
         assert scope_ref() is None
         assert parent_scope_ref() is None
+        i = sys.getrefcount(task)
         assert sys.getrefcount(task) == 2
-        assert tg.cancel_scope._host_task is None
     finally:
         gc.enable()
 
@@ -1083,10 +1084,13 @@ async def test_cancellederror_combination_with_message() -> None:
 
 async def test_start_soon_parent_id() -> None:
     root_task_id = get_current_task().id
+    root_task = get_current_task()
     parent_id: Optional[int] = None
+    parent_task = None
 
     async def subtask() -> None:
-        nonlocal parent_id
+        nonlocal parent_id, parent_task
+        parent_task = get_current_task()
         parent_id = get_current_task().parent_id
 
     async def starter_task() -> None:

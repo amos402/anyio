@@ -383,25 +383,21 @@ class CancelScope(BaseCancelScope):
         if self._shield:
             self._deliver_cancellation_to_parent()
 
-        try:
-            if exc_val is not None:
-                exceptions = (
-                    exc_val.exceptions
-                    if isinstance(exc_val, ExceptionGroup)
-                    else [exc_val]
-                )
-                if all(isinstance(exc, CancelledError) for exc in exceptions):
-                    if self._timeout_expired:
-                        return True
-                    elif not self._cancel_called:
-                        # Task was cancelled natively
-                        return None
-                    elif not self._parent_cancelled():
-                        # This scope was directly cancelled
-                        return True
-        finally:
-            pass
-            # self._parent_scope = None
+        if exc_val is not None:
+            exceptions = (
+                exc_val.exceptions
+                if isinstance(exc_val, ExceptionGroup)
+                else [exc_val]
+            )
+            if all(isinstance(exc, CancelledError) for exc in exceptions):
+                if self._timeout_expired:
+                    return True
+                elif not self._cancel_called:
+                    # Task was cancelled natively
+                    return None
+                elif not self._parent_cancelled():
+                    # This scope was directly cancelled
+                    return True
 
         return None
 
@@ -469,12 +465,14 @@ class CancelScope(BaseCancelScope):
     def _parent_cancelled(self) -> bool:
         # Check whether any parent has been cancelled
         cancel_scope = self._parent_scope
+        self._parent_scope = None
         while cancel_scope is not None and not cancel_scope._shield:
             if cancel_scope._cancel_called:
                 return True
             else:
                 cancel_scope = cancel_scope._parent_scope
-
+                cancel_scope._parent_scope = None
+        self._host_task = None
         return False
 
     def cancel(self) -> DeprecatedAwaitable:
@@ -741,8 +739,9 @@ class TaskGroup(abc.TaskGroup):
             except CancelledError as e:
                 while isinstance(e.__context__, CancelledError):
                     e = e.__context__
-
                 exc = e
+            finally:
+                _task = None
 
             if exc is not None:
                 if task_status_future is None or task_status_future.done():
@@ -754,6 +753,7 @@ class TaskGroup(abc.TaskGroup):
                 task_status_future.set_exception(
                     RuntimeError("Child exited without calling task_status.started()")
                 )
+            _task = None
 
         if not self._active:
             raise RuntimeError(
