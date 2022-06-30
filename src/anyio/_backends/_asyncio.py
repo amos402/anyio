@@ -375,7 +375,7 @@ class CancelScope(BaseCancelScope):
 
         self._tasks.remove(self._host_task)
         i = sys.getrefcount(self._host_task)
-        # self._host_task = None
+        self._host_task = None
 
         host_task_state.cancel_scope = self._parent_scope
 
@@ -473,7 +473,6 @@ class CancelScope(BaseCancelScope):
             else:
                 cancel_scope = cancel_scope._parent_scope
                 cancel_scope._parent_scope = None
-        self._host_task = None
         return False
 
     def cancel(self) -> DeprecatedAwaitable:
@@ -485,7 +484,6 @@ class CancelScope(BaseCancelScope):
             self._cancel_called = True
             self._deliver_cancellation()
 
-        self._host_task = None
         return DeprecatedAwaitable(self.cancel)
 
     @property
@@ -627,9 +625,11 @@ class TaskGroup(abc.TaskGroup):
         self.cancel_scope: CancelScope = CancelScope()
         self._active = False
         self._exceptions: List[BaseException] = []
+        self._root_id = None
 
     async def __aenter__(self) -> "TaskGroup":
         self.cancel_scope.__enter__()
+        self._root_id = id(self.cancel_scope._host_task)
         self._active = True
         return self
 
@@ -651,6 +651,7 @@ class TaskGroup(abc.TaskGroup):
                 self.cancel_scope.cancel()
 
         self._active = False
+        self._root_id = None
         if not self.cancel_scope._parent_cancelled():
             exceptions = self._filter_cancellation_errors(self._exceptions)
         else:
@@ -768,13 +769,14 @@ class TaskGroup(abc.TaskGroup):
             options["name"] = name
 
         kwargs = {}
+        
         if task_status_future:
             parent_id = id(current_task())
             kwargs["task_status"] = _AsyncioTaskStatus(
-                task_status_future, id(self.cancel_scope._host_task)
+                task_status_future, self._root_id
             )
         else:
-            parent_id = id(self.cancel_scope._host_task)
+            parent_id = self._root_id
 
         coro = func(*args, **kwargs)
         if not asyncio.iscoroutine(coro):
