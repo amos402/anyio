@@ -374,7 +374,7 @@ class CancelScope(BaseCancelScope):
             self._timeout_handle = None
 
         self._tasks.remove(self._host_task)
-        self._host_task = None
+        # self._host_task = None
 
         host_task_state.cancel_scope = self._parent_scope
 
