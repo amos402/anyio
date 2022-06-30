@@ -400,7 +400,8 @@ class CancelScope(BaseCancelScope):
                         # This scope was directly cancelled
                         return True
         finally:
-            self._parent_scope = None
+            pass
+            # self._parent_scope = None
 
         return None
 
